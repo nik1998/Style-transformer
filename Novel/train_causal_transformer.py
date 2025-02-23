@@ -11,38 +11,16 @@ import numpy as np
 from pathlib import Path
 
 from causal_transformer_model import CausalWeatherTransformer
+from losses import WeatherLoss
 
 
-class PerceptualLoss(nn.Module):
-    def __init__(self, device='cuda'):
-        super().__init__()
-        # Use VGG16 features for perceptual loss
-        vgg = models.vgg16(weights=models.VGG16_Weights.DEFAULT).features.to(device)
-        self.blocks = nn.ModuleList([
-            vgg[:4],   # relu1_2
-            vgg[4:9],  # relu2_2
-            vgg[9:16], # relu3_3
-        ]).eval()
-        
-        # Freeze VGG parameters
-        for p in self.parameters():
-            p.requires_grad = False
-            
-    def forward(self, x, y):
-        x_features = []
-        y_features = []
-        
-        for block in self.blocks:
-            x = block(x)
-            y = block(y)
-            x_features.append(x)
-            y_features.append(y)
-            
-        perceptual_loss = 0.0
-        for x_feat, y_feat in zip(x_features, y_features):
-            perceptual_loss += F.mse_loss(x_feat, y_feat)
-            
-        return perceptual_loss
+class ClampTransform:
+    """Clamp tensor values to [0,1] range"""
+    def __call__(self, x):
+        return torch.clamp(x, 0.0, 1.0)
+    
+    def __repr__(self):
+        return self.__class__.__name__ + '()'
 
 
 class WeatherDataset(Dataset):
@@ -59,6 +37,7 @@ class WeatherDataset(Dataset):
         self.transform = transform or transforms.Compose([
             transforms.Resize((256, 256)),
             transforms.ToTensor(),
+            ClampTransform()  # Ensure input values are in [0,1]
         ])
         
         # Load template (keep on CPU)
@@ -86,93 +65,6 @@ class WeatherDataset(Dataset):
         return clean_img, self.template, weather_img
 
 
-class WeatherLoss(nn.Module):
-    def __init__(self, device):
-        super().__init__()
-        self.l1_loss = nn.L1Loss()
-        self.perceptual_loss = PerceptualLoss(device=device).to(device)
-        self.edge_loss = self.edge_detection_loss
-        
-    def edge_detection_loss(self, x, y):
-        def sobel_edges(img):
-            sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], device=img.device).float()
-            sobel_y = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], device=img.device).float()
-            
-            sobel_x = sobel_x.view(1, 1, 3, 3).repeat(3, 1, 1, 1)
-            sobel_y = sobel_y.view(1, 1, 3, 3).repeat(3, 1, 1, 1)
-            
-            edge_x = F.conv2d(img, sobel_x, padding=1, groups=3)
-            edge_y = F.conv2d(img, sobel_y, padding=1, groups=3)
-            
-            return torch.sqrt(edge_x.pow(2) + edge_y.pow(2) + 1e-6)
-            
-        return F.l1_loss(sobel_edges(x), sobel_edges(y))
-    
-    def checkerboard_loss(self, x):
-        """Detect and penalize checkerboard patterns"""
-        # Compute differences between adjacent pixels
-        diff_x = torch.abs(x[:, :, :, 1:] - x[:, :, :, :-1])
-        diff_y = torch.abs(x[:, :, 1:, :] - x[:, :, :-1, :])
-        
-        # Detect alternating patterns
-        checker_x = torch.abs(diff_x[:, :, :, 1:] - diff_x[:, :, :, :-1])
-        checker_y = torch.abs(diff_y[:, :, 1:, :] - diff_y[:, :, :-1, :])
-        
-        # High values indicate presence of checkerboard artifacts
-        return checker_x.mean() + checker_y.mean()
-    
-    def smoothness_loss(self, x):
-        """Encourage local smoothness while preserving edges"""
-        # Compute gradients
-        grad_x = torch.abs(x[:, :, :, 1:] - x[:, :, :, :-1])
-        grad_y = torch.abs(x[:, :, 1:, :] - x[:, :, :-1, :])
-        
-        # Compute second-order gradients
-        grad_xx = torch.abs(grad_x[:, :, :, 1:] - grad_x[:, :, :, :-1])
-        grad_yy = torch.abs(grad_y[:, :, 1:, :] - grad_y[:, :, :-1, :])
-        
-        return grad_xx.mean() + grad_yy.mean()
-    
-    def forward(self, output, target, template):
-        # Content loss
-        l1 = self.l1_loss(output, target)
-        
-        # Perceptual loss
-        perceptual = self.perceptual_loss(output, target)
-        
-        # Edge preservation loss
-        edge = self.edge_loss(output, target)
-        
-        # Anti-checkerboard losses
-        checker = self.checkerboard_loss(output)
-        smooth = self.smoothness_loss(output)
-        
-        # Weather pattern consistency
-        pattern = self.l1_loss(
-            F.adaptive_avg_pool2d(output, (32, 32)),
-            F.adaptive_avg_pool2d(template, (32, 32))
-        )
-        
-        # Total loss with weights
-        total_loss = (
-            0.4 * l1 +           # Content preservation
-            0.2 * perceptual +   # Perceptual quality
-            0.15 * edge +        # Structure preservation
-            0.1 * pattern +      # Weather pattern matching
-            0.1 * checker +      # Anti-checkerboard
-            0.05 * smooth        # Local smoothness
-        )
-        
-        return total_loss, {
-            'l1_loss': l1.item(),
-            'perceptual_loss': perceptual.item(),
-            'edge_loss': edge.item(),
-            'pattern_loss': pattern.item(),
-            'checker_loss': checker.item(),
-            'smooth_loss': smooth.item(),
-            'total_loss': total_loss.item()
-        }
-
 
 def train_model(
     model,
@@ -185,7 +77,7 @@ def train_model(
     os.makedirs(save_dir, exist_ok=True)
     
     # Setup training components
-    criterion = WeatherLoss(device)
+    criterion = WeatherLoss()
     optimizer = torch.optim.AdamW(
         model.parameters(),
         lr=2e-4,

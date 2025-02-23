@@ -32,7 +32,7 @@ class ConvolutionalEncoder(nn.Module):
             nn.Conv2d(embed_dim, embed_dim, kernel_size=3, padding=1),
             nn.BatchNorm2d(embed_dim),
             nn.GELU(),
-            
+
             # Final downsampling to patch size (1/patch_size)
             nn.Conv2d(embed_dim, embed_dim, kernel_size=4, stride=4, padding=0),
             nn.BatchNorm2d(embed_dim),
@@ -316,7 +316,9 @@ class CausalWeatherTransformer(nn.Module):
         # Progressive upsampling and decoding
         x = self.decoder(x)
         
-        return x + img
+        # Add residual connection and normalize to [0,1] range
+        x = x + img
+        return torch.clamp(x, 0.0, 1.0)
 
 
 if __name__ == "__main__":
@@ -330,5 +332,3 @@ if __name__ == "__main__":
     
     # Forward pass
     output = model(x, template)
-    print(f"Output shape: {output.shape}")  # Should be [1, 3, 256, 256]
-    print(f"Using device: {device}")

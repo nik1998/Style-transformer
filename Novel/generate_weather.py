@@ -81,11 +81,10 @@ def generate_weather_images():
             for output, filename in zip(outputs, filenames):
                 # Convert to numpy and scale to 0-255
                 output_img = (output.cpu().numpy().transpose(1, 2, 0) * 255).astype(np.uint8)
-                output_img = cv2.cvtColor(output_img, cv2.COLOR_RGB2BGR)
                 
-                # Save with original filename
+                # Save with original filename using PIL to preserve RGB order
                 output_path = os.path.join(output_dir, filename)
-                cv2.imwrite(output_path, output_img)
+                Image.fromarray(output_img).save(output_path)
 
 if __name__ == "__main__":
     # Set random seeds
