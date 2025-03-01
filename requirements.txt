@@ -1,0 +1,8 @@
+numpy
+opencv-python
+pillow
+scikit-learn
+scipy
+torch
+torchvision
+tqdm
