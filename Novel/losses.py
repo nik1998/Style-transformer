@@ -102,7 +102,7 @@ class WeatherLoss(nn.Module):
         perceptual = self.perceptual_loss(output, template)
 
         # Combine losses with balanced weights
-        total_loss = 0.6 * l1 + 0.3 * ssim + 0.1 * perceptual
+        total_loss = 0.7 * l1 + 0.2 * ssim + 0.1 * perceptual
 
         return total_loss, {
             'content_loss': l1.item(),
