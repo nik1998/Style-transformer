@@ -6,133 +6,11 @@ import random
 import json
 import shutil
 from sklearn.model_selection import train_test_split
-from scipy.ndimage import gaussian_filter
+from utils.fog_generator import FogGenerator
 
 def ensure_dir(directory):
     if not os.path.exists(directory):
         os.makedirs(directory)
-
-def generate_perlin_noise(shape, scale=100, octaves=6, persistence=0.5, lacunarity=2.0, seed=None):
-    """Generate Perlin noise for more natural fog patterns"""
-    if seed is not None:
-        np.random.seed(seed)
-        
-    def generate_octave(shape, frequency):
-        noise = np.random.rand(*shape)
-        noise = cv2.resize(noise, None, fx=frequency, fy=frequency, interpolation=cv2.INTER_LINEAR)
-        noise = cv2.resize(noise, (shape[1], shape[0]), interpolation=cv2.INTER_LINEAR)
-        return noise
-    
-    noise = np.zeros(shape)
-    amplitude = 1.0
-    frequency = 1.0 / scale
-    
-    for _ in range(octaves):
-        noise += amplitude * generate_octave(shape, frequency)
-        amplitude *= persistence
-        frequency *= lacunarity
-        
-    # Normalize to [0, 1]
-    noise = (noise - noise.min()) / (noise.max() - noise.min())
-    return noise
-
-def simulate_atmospheric_scattering(image, fog_density, depth_factor=1.0):
-    """Simulate atmospheric scattering effect in fog"""
-    # Convert to float
-    image_float = image.astype(np.float32) / 255.0
-    
-    # Create depth map (simple gradient from top to bottom)
-    height = image.shape[0]
-    depth_map = np.linspace(0, 1, height)
-    depth_map = np.tile(depth_map.reshape(-1, 1), (1, image.shape[1]))
-    depth_map = np.dstack([depth_map] * 3)
-    
-    # Apply depth-dependent scattering
-    transmission = np.exp(-fog_density * depth_map * depth_factor)
-    airlight = np.array([1.0, 1.0, 1.0])  # White fog
-    
-    scattered = image_float * transmission + airlight.reshape(1, 1, 3) * (1 - transmission)
-    return np.clip(scattered, 0, 1)
-
-def apply_noise(image, seed=None):
-    """Apply realistic fog effect to an image with optional seed for reproducibility"""
-    if seed is not None:
-        np.random.seed(seed)
-    
-    # Convert to float32
-    image_float = image.astype(np.float32) / 255.0
-    
-    # Use seed to initialize random state for consistent parameters
-    if seed is not None:
-        random_state = np.random.RandomState(seed)
-    else:
-        random_state = np.random.RandomState()
-        
-    # Generate base perlin noise for fog pattern with consistent parameters
-    base_scale = random_state.uniform(50, 150)
-    base_octaves = random_state.randint(4, 9)
-    base_persistence = random_state.uniform(0.4, 0.6)
-    base_lacunarity = random_state.uniform(1.8, 2.2)
-    
-    fog_pattern = generate_perlin_noise(
-        image.shape[:2], 
-        scale=base_scale,
-        octaves=base_octaves,
-        persistence=base_persistence,
-        lacunarity=base_lacunarity,
-        seed=seed if seed is not None else random_state.randint(0, 1000000)
-    )
-    
-    # Add multi-scale detail with same seed
-    detail_scale = random_state.uniform(20, 50)
-    detail_pattern = generate_perlin_noise(
-        image.shape[:2],
-        scale=detail_scale,
-        octaves=3,
-        persistence=0.3,
-        seed=seed if seed is not None else random_state.randint(0, 1000000)
-    )
-    
-    fog_pattern = 0.8 * fog_pattern + 0.2 * detail_pattern
-    
-    # Use same random state for blur
-    blur_sigma = random_state.uniform(3, 5)  # Increased blur for thicker fog
-    fog_pattern = gaussian_filter(fog_pattern, sigma=blur_sigma)
-    
-    # Expand to 3 channels
-    fog_pattern = np.stack([fog_pattern] * 3, axis=-1)
-    
-    # Use same random state for color variation
-    fog_color = np.array([
-        random_state.uniform(0.97, 1.0),  # R - increased brightness
-        random_state.uniform(0.97, 1.0),  # G
-        random_state.uniform(0.97, 1.0)   # B
-    ])
-    fog = fog_pattern * fog_color.reshape(1, 1, 3)
-    
-    # Use same random state for fog parameters
-    fog_intensity = random_state.uniform(0.7, 0.95)
-    fog_density = random_state.uniform(0.7, 0.9)
-    
-    # Apply atmospheric scattering with consistent density
-    scattered = simulate_atmospheric_scattering(
-        image, 
-        fog_density=fog_density
-    )
-    
-    # Combine effects with stronger fog influence
-    noisy_image = scattered * (1 - fog_intensity * fog_pattern) + fog * fog_intensity
-    
-    # Add subtle gaussian noise with consistent parameters
-    noise_std = random_state.uniform(0.01, 0.03)
-    noise = random_state.normal(0, noise_std, noisy_image.shape)  # Reduced noise for cleaner fog
-    noisy_image = noisy_image + noise
-    
-    # Clip values to valid range
-    noisy_image = np.clip(noisy_image, 0, 1)
-    
-    # Convert back to uint8
-    return (noisy_image * 255).astype(np.uint8)
 
 def process_image(input_path, template_paths, output_base_dir, split_type, idx):
     """Process a single image with multiple templates"""
@@ -176,9 +54,12 @@ def process_image(input_path, template_paths, output_base_dir, split_type, idx):
                 # Generate noise seed for this template
                 noise_seed = random.randint(0, 1000000)
                 
+                # Create fog generator with the seed
+                fog_generator = FogGenerator(seed=noise_seed)
+                
                 # Apply same noise pattern to both template and input image
-                noisy_template = apply_noise(template_image, seed=noise_seed)
-                target = apply_noise(input_image, seed=noise_seed)
+                noisy_template = fog_generator.apply_noise(template_image)
+                target = fog_generator.apply_noise(input_image)
                 
                 # Save template and target
                 template_name = f"template_{idx}_{template_idx}.png"
