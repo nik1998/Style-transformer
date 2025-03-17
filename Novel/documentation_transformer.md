@@ -219,20 +219,56 @@ Where:
 
 The model can generate various weather effects based on the provided template:
 
-### Fog Effect
-| Original Image | Template | Generated Result |
-|:---:|:---:|:---:|
-| ![Original](weather_output/clean/clean_0_fog.png) | ![Template](weather_output/template/clean_0_fog.png) | ![Generated](weather_output/generated/clean_0_fog.png) |
+### Fog Effect Examples
 
-### Rain Effect
+#### Example 1
 | Original Image | Template | Generated Result |
 |:---:|:---:|:---:|
-| ![Original](weather_output/clean/clean_0_rain.png) | ![Template](weather_output/template/clean_0_rain.png) | ![Generated](weather_output/generated/clean_0_rain.png) |
+| ![Original](example_images/clean_fog_1.png) | ![Template](example_images/template_fog_1.png) | ![Generated](example_images/generated_fog_1.png) |
 
-### Snow Effect
+#### Example 2
 | Original Image | Template | Generated Result |
 |:---:|:---:|:---:|
-| ![Original](weather_output/clean/clean_0_snow.png) | ![Template](weather_output/template/clean_0_snow.png) | ![Generated](weather_output/generated/clean_0_snow.png) |
+| ![Original](example_images/clean_fog_2.png) | ![Template](example_images/template_fog_2.png) | ![Generated](example_images/generated_fog_2.png) |
+
+#### Example 3
+| Original Image | Template | Generated Result |
+|:---:|:---:|:---:|
+| ![Original](example_images/clean_fog_3.png) | ![Template](example_images/template_fog_3.png) | ![Generated](example_images/generated_fog_3.png) |
+
+### Rain Effect Examples
+
+#### Example 1
+| Original Image | Template | Generated Result |
+|:---:|:---:|:---:|
+| ![Original](example_images/clean_rain_1.png) | ![Template](example_images/template_rain_1.png) | ![Generated](example_images/generated_rain_1.png) |
+
+#### Example 2
+| Original Image | Template | Generated Result |
+|:---:|:---:|:---:|
+| ![Original](example_images/clean_rain_2.png) | ![Template](example_images/template_rain_2.png) | ![Generated](example_images/generated_rain_2.png) |
+
+#### Example 3
+| Original Image | Template | Generated Result |
+|:---:|:---:|:---:|
+| ![Original](example_images/clean_rain_3.png) | ![Template](example_images/template_rain_3.png) | ![Generated](example_images/generated_rain_3.png) |
+
+### Snow Effect Examples
+
+#### Example 1
+| Original Image | Template | Generated Result |
+|:---:|:---:|:---:|
+| ![Original](example_images/clean_snow_1.png) | ![Template](example_images/template_snow_1.png) | ![Generated](example_images/generated_snow_1.png) |
+
+#### Example 2
+| Original Image | Template | Generated Result |
+|:---:|:---:|:---:|
+| ![Original](example_images/clean_snow_2.png) | ![Template](example_images/template_snow_2.png) | ![Generated](example_images/generated_snow_2.png) |
+
+#### Example 3
+| Original Image | Template | Generated Result |
+|:---:|:---:|:---:|
+| ![Original](example_images/clean_snow_3.png) | ![Template](example_images/template_snow_3.png) | ![Generated](example_images/generated_snow_3.png) |
 
 ## Model Parameters
 
