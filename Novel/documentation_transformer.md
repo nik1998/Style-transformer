@@ -186,12 +186,36 @@ Where:
 1. **Content Loss** ($L_1$):
    $$L_1 = \|G(x) - y\|_1$$
 
+   This is a pixel-wise L1 distance between the generated image $G(x)$ and the target image $y$, which ensures overall content fidelity.
+
 2. **Structure Loss** ($L_{structure}$):
    $$L_{structure} = 1 - \text{SSIM}(G(x), y)$$
 
+   Based on the Structural Similarity Index (SSIM), this loss ensures that the structural information (luminance, contrast, and structure) is preserved between the generated image and the target.
+
 3. **Perceptual Loss** ($L_{perceptual}$):
-   $$L_{perceptual} = \text{MSE}(\text{norm}(G(x)), \text{norm}(t))$$
-   where $t$ is the template image
+   
+   The perceptual loss consists of two components that match both the pattern and statistical properties of the weather effect:
+
+   $$L_{perceptual} = 0.5 \cdot L_{pattern} + 0.5 \cdot L_{stats}$$
+
+   Where:
+
+   a. **Pattern Similarity Loss** ($L_{pattern}$):
+      $$L_{pattern} = \text{MSE}(\text{norm}(G(x)), \text{norm}(t))$$
+
+      This component normalizes both the generated image $G(x)$ and the template $t$ by subtracting their respective means and dividing by their standard deviations:
+      
+      $$\text{norm}(I) = \frac{I - \mu_I}{\sigma_I + \epsilon}$$
+      
+      where $\mu_I$ and $\sigma_I$ are the mean and standard deviation of image $I$, and $\epsilon$ is a small constant for numerical stability. This normalization allows comparison of the weather patterns regardless of their intensity or color distribution.
+
+   b. **Statistics Matching Loss** ($L_{stats}$):
+      $$L_{stats} = \text{MSE}(\mu_{G(x)}, \mu_t) + \text{MSE}(\sigma_{G(x)}, \sigma_t)$$
+
+      This component ensures that the statistical properties (mean and standard deviation) of the generated image match those of the template, which helps transfer the overall intensity and contrast of the weather effect.
+
+   The perceptual loss enables the model to generate weather effects that match the pattern and statistical properties of the template, resulting in more realistic and controllable weather generation.
 
 ## Key Architectural Features
 
