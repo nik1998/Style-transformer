@@ -1,69 +1,14 @@
 import os
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms
+from torch.utils.data import DataLoader
 from torch.cuda.amp import GradScaler, autocast
-from PIL import Image
 from tqdm import tqdm
 import numpy as np
-import json
-from pathlib import Path
 
-from causal_transformer_model import CausalWeatherTransformer
+from transformer_model import WeatherTransformer
 from losses import WeatherLoss
-
-
-class ClampTransform:
-    """Clamp tensor values to [0,1] range"""
-    def __call__(self, x):
-        return torch.clamp(x, 0.0, 1.0)
-    
-    def __repr__(self):
-        return self.__class__.__name__ + '()'
-
-
-class WeatherDataset(Dataset):
-    def __init__(self, data_dir, split='train', transform=None):
-        self.data_dir = Path(data_dir) / split
-        self.split = split
-        
-        # Load relationships file
-        with open(Path(data_dir) / 'relationships.json', 'r') as f:
-            relationships = json.load(f)
-        self.relationships = relationships[split]
-        
-        self.transform = transform or transforms.Compose([
-            transforms.Resize((256, 256)),
-            transforms.ToTensor(),
-            ClampTransform()  # Ensure input values are in [0,1]
-        ])
-
-    def __len__(self):
-        return len(self.relationships)
-
-    def __getitem__(self, idx):
-        rel = self.relationships[idx]
-        
-        # Load clean image
-        clean_path = self.data_dir / 'clean' / rel['clean']
-        clean_img = Image.open(clean_path).convert('RGB')
-        
-        # Load template image
-        template_path = self.data_dir / 'template' / rel['template']
-        template_img = Image.open(template_path).convert('RGB')
-        
-        # Load target (weather-affected) image
-        target_path = self.data_dir / 'target' / rel['target']
-        target_img = Image.open(target_path).convert('RGB')
-
-        if self.transform:
-            clean_img = self.transform(clean_img)
-            template_img = self.transform(template_img)
-            target_img = self.transform(target_img)
-
-        return clean_img, template_img, target_img
+from datasets import WeatherDataset
 
 
 def train_model(
@@ -227,7 +172,7 @@ if __name__ == "__main__":
     )
     
     # Initialize model
-    model = CausalWeatherTransformer().to(device)
+    model = WeatherTransformer().to(device)
     
     # Train model
     train_model(
